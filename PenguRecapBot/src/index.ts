@@ -1,12 +1,35 @@
-require('dotenv').config({ path: '../.env' });
-const { Client, GatewayIntentBits } = require('discord.js');
+import 'dotenv/config';
+import { Client, GatewayIntentBits } from 'discord.js';
+import { DatabaseService } from './services/databaseService';
+import { handleReady } from './bot/events/ready';
+import { handleMessageCreate } from './bot/events/messageCreate';
+import { config, validateConfig } from './config/index';
+import { Logger } from './utils/logger';
 
-console.log('DISCORD_TOKEN loaded:', process.env.DISCORD_TOKEN ? 'Yes' : 'No');
-if (!process.env.DISCORD_TOKEN) {
-  console.error('❌ DISCORD_TOKEN not found in environment variables');
+// Validate configuration
+try {
+  validateConfig();
+  Logger.success('Configuration validated successfully');
+} catch (error) {
+  Logger.error('Configuration validation failed:', error);
   process.exit(1);
 }
 
+// Initialize services
+const dbService = new DatabaseService();
+
+// Test database connection on startup
+dbService.testConnection()
+  .then(success => {
+    if (!success) {
+      Logger.error('Failed to connect to Supabase. Bot will continue but messages won\'t be saved.');
+    }
+  })
+  .catch(err => {
+    Logger.error('Error testing database connection:', err);
+  });
+
+// Create Discord client
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -15,14 +38,23 @@ const client = new Client({
   ],
 });
 
-client.once('ready', () => {
-  console.log(`🤖 Logged in as ${client.user.tag}`);
+// Event handlers
+client.once('ready', () => handleReady(client));
+client.on('messageCreate', (message) => handleMessageCreate(message, dbService));
+
+// Error handling
+client.on('error', (error) => {
+  Logger.error('Discord client error:', error);
 });
 
-client.on('messageCreate', message => {
-  if (message.content === '!ping') {
-    message.channel.send('Pong!');
-  }
+process.on('unhandledRejection', (error) => {
+  Logger.error('Unhandled promise rejection:', error);
 });
 
-client.login(process.env.DISCORD_TOKEN);
+// Start the bot
+client.login(config.discord.token)
+  .then(() => Logger.info('Bot login initiated'))
+  .catch((error) => {
+    Logger.error('Failed to login:', error);
+    process.exit(1);
+  });

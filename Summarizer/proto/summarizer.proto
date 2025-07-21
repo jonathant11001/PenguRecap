@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package summarizer;
+
+service SummarizerService {
+  rpc Summarize (SummarizeRequest) returns (SummarizeResponse);
+}
+
+message SummarizeRequest {
+  repeated string messages = 1;
+}
+
+message SummarizeResponse {
+  string summary = 1;
+}
