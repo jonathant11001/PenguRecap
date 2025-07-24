@@ -3,17 +3,22 @@
   "version": "1.0.0",
   "description": "Discord bot for recapping messages",
   "main": "dist/index.js",
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "tsx src/index.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "tsx src/index.ts"
   },
-  "keywords": ["discord", "bot", "recap"],
+  "keywords": [
+    "discord",
+    "bot",
+    "recap"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@grpc/grpc-js": "^1.13.4",
+    "@grpc/proto-loader": "^0.8.0",
     "@supabase/supabase-js": "^2.52.0",
     "discord.js": "^14.21.0",
     "dotenv": "^17.2.0"

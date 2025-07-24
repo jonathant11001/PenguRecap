@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package summarizer;
 
+option go_package = "pengurecap/proto/summarizer";
+
 service SummarizerService {
   rpc Summarize (SummarizeRequest) returns (SummarizeResponse);
 }
@@ -12,4 +14,4 @@ message SummarizeRequest {
 
 message SummarizeResponse {
   string summary = 1;
-}
+} 

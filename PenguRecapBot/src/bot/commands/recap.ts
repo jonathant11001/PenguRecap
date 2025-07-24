@@ -1,5 +1,6 @@
 import { Message } from 'discord.js';
 import { DatabaseService } from '../../services/databaseService';
+import { SummarizerService } from '../../services/summarizerService';
 import { handleMessageCreate } from '../events/messageCreate';
 
 export async function handleRecapCommand(message: Message, args: string[], dbService: DatabaseService) {
@@ -68,10 +69,29 @@ export async function handleRecapCommand(message: Message, args: string[], dbSer
       await message.reply('📝 No recent messages found to recap.');
       return;
     }
+
+    // Initialize summarizer service
+    const summarizerService = new SummarizerService();
     
-    await message.reply(`📊 Processed ${newMessagesCount} messages. Found ${recentMessages.length} recent messages total. Recap feature coming soon!`);
-    
-  } catch (error) {
+    try {
+      // Test connection first
+      const isConnected = await summarizerService.testConnection();
+      if (!isConnected) {
+        await message.reply('⚠️ Summarizer service is not available. Showing message count only.');
+        await message.reply(`📊 Processed ${newMessagesCount} messages. Found ${recentMessages.length} recent messages total.`);
+        return;
+      }
+
+      // Get summary from the gRPC service
+      await message.reply('🤖 Generating summary...');
+      const summary = await summarizerService.summarizeMessages(recentMessages);
+      
+      await message.reply(`📊 **Recap Summary**\n\n${summary}\n\n*Processed ${newMessagesCount} new messages, summarized ${recentMessages.length} recent messages.*`);
+      
+    } catch (summaryError) {
+      console.error('❌ Error generating summary:', summaryError);
+      await message.reply(`📊 Processed ${newMessagesCount} messages. Found ${recentMessages.length} recent messages total. Summary generation failed - check if the summarizer service is running.`);
+    }  } catch (error) {
     console.error('❌ Error handling recap command:', error);
     await message.reply('⚠️ Sorry, there was an error generating the recap.');
   }

@@ -20,6 +20,65 @@ build/
 out/
 *.tsbuildinfo
 
+# Go-specific files (for your Summarizer service)
+# Go build outputs
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+go.work.sum
+
+# Go dependency management
+vendor/
+
+# Go coverage files
+*.cover
+*.coverprofile
+
+# GoLand/IntelliJ Go plugin
+.idea/
+
+# VS Code Go extension
+.vscode/go/
+
+# Protocol Buffer generated files (if you regenerate them)
+# Uncomment if you want to regenerate proto files each time
+# *.pb.go
+# *_grpc.pb.go
+# proto/
+
+# Discord Bot specific
+# Bot token files (extra safety)
+bot-token.txt
+discord-token.txt
+token.txt
+
+# Database dumps and backups
+*.sql
+*.dump
+*.backup
+
+# Supabase local development
+.supabase/
+
+# AI API response caches (if you implement caching)
+cache/
+.cache/
+ai-cache/
+
+# Local testing files
+test-messages.json
+mock-data/
+fixtures/
+
+# Performance profiling
+*.prof
+*.pprof
+
 # Runtime data
 pids
 *.pid
