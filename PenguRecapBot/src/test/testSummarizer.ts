@@ -3,9 +3,9 @@ import { DiscordMessage } from '../models/Message';
 
 async function testSummarizerConnection() {
   console.log('🧪 Testing summarizer service connection...');
-  
+
   const summarizerService = new SummarizerService();
-  
+
   // Test with sample messages
   const testMessages: DiscordMessage[] = [
     {

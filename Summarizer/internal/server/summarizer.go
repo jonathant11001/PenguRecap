@@ -18,7 +18,7 @@ func (s *SummarizerServer) Summarize(ctx context.Context, req *pb.SummarizeReque
 
 	summary, err := gemini.SummarizeMessages(req.Messages)
 	if err != nil {
-		log.Println("❌ Error summarizing:", err)
+		log.Println("Error summarizing:", err)
 		return nil, err
 	}
 

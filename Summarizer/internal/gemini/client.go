@@ -4,13 +4,18 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
-const geminiEndpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent"
+const defaultModel = "gemini-1.5-flash-latest"
+
+func endpointForModel(model string) string {
+	return fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent", model)
+}
 
 type part struct {
 	Text string `json:"text"`
@@ -32,62 +37,89 @@ type responseBody struct {
 	Candidates []candidate `json:"candidates"`
 }
 
-// SummarizeMessages calls the Gemini API and returns a summary
+type errorPayload struct {
+	Error struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Status  string `json:"status"`
+	} `json:"error"`
+}
+
+// buildFallbackSummary creates a basic summary without AI
+func buildFallbackSummary(messages []string, reason string) string {
+	count := len(messages)
+	if count == 0 {
+		return "No messages to summarize."
+	}
+	// Include up to the first 2 lines as a hint
+	previewLines := 2
+	if count < previewLines {
+		previewLines = count
+	}
+	preview := strings.Join(messages[:previewLines], " \n")
+	if reason != "" {
+		reason = "; " + reason
+	}
+	return fmt.Sprintf("Summary: Conversation with %d messages. Preview: %s%s (AI summary unavailable)", count, preview, reason)
+}
+
+// SummarizeMessages calls the Gemini API and returns a summary. On API issues, returns a safe fallback string instead of an error.
 func SummarizeMessages(messages []string) (string, error) {
 	apiKey := os.Getenv("GEMINI_API_KEY")
+	model := os.Getenv("GEMINI_MODEL")
+	if model == "" {
+		model = defaultModel
+	}
+
+	// If no API key, return a deterministic fallback
 	if apiKey == "" {
-		// Provide a simple fallback summary when API key is not available
-		messageCount := len(messages)
-		if messageCount == 0 {
-			return "No messages to summarize.", nil
-		}
-		
-		// Create a basic summary
-		return fmt.Sprintf("Summary: Conversation with %d messages. Topics discussed include general chat and interactions between users. (Detailed AI summary unavailable - Gemini API key not configured)", messageCount), nil
+		return buildFallbackSummary(messages, "Gemini API key not configured"), nil
 	}
 
-	// Construct the prompt
 	combined := strings.Join(messages, "\n")
-	prompt := fmt.Sprintf("Summarize the following Discord chat:\n\n%s", combined)
+	prompt := fmt.Sprintf("Summarize the following Discord chat in a few concise bullet points, include key topics and decisions:\n\n%s", combined)
 
-	reqBody := requestBody{
-		Contents: []content{
-			{Parts: []part{{Text: prompt}}},
-		},
-	}
-
+	reqBody := requestBody{Contents: []content{{Parts: []part{{Text: prompt}}}}}
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %v", err)
+		// Return fallback rather than error to avoid failing the gRPC call
+		return buildFallbackSummary(messages, "request marshal failed"), nil
 	}
 
-	url := fmt.Sprintf("%s?key=%s", geminiEndpoint, apiKey)
+	url := fmt.Sprintf("%s?key=%s", endpointForModel(model), apiKey)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %v", err)
+		return buildFallbackSummary(messages, "failed to create request"), nil
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 20 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("request to Gemini failed: %v", err)
+		return buildFallbackSummary(messages, "request to Gemini failed"), nil
 	}
 	defer resp.Body.Close()
 
-	body, _ := ioutil.ReadAll(resp.Body)
-	
-	// Add debugging to see what Gemini returns
-	fmt.Printf("Gemini response status: %d\n", resp.StatusCode)
-	fmt.Printf("Gemini response body: %s\n", string(body))
+	body, _ := io.ReadAll(resp.Body)
+
+	// If HTTP error, try to parse and fallback
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		var ep errorPayload
+		_ = json.Unmarshal(body, &ep)
+		reason := resp.Status
+		if ep.Error.Message != "" {
+			reason = ep.Error.Message
+		}
+		return buildFallbackSummary(messages, reason), nil
+	}
 
 	var result responseBody
 	if err := json.Unmarshal(body, &result); err != nil {
-		return "", fmt.Errorf("failed to parse Gemini response: %v", err)
+		return buildFallbackSummary(messages, "failed to parse Gemini response"), nil
 	}
 
 	if len(result.Candidates) == 0 || len(result.Candidates[0].Content.Parts) == 0 {
-		return "", fmt.Errorf("no summary returned from Gemini")
+		return buildFallbackSummary(messages, "no content returned"), nil
 	}
 
 	return result.Candidates[0].Content.Parts[0].Text, nil

@@ -3,14 +3,14 @@ import { DatabaseService } from '../../services/databaseService';
 import { handlePingCommand } from './ping';
 import { handleRecapCommand } from './recap';
 
-export async function handleCommand(message: Message, commandName: string, args: string[], dbService: DatabaseService) {
+export async function handleCommand(message: Message, commandName: string, dbService: DatabaseService) {
   switch (commandName) {
     case 'ping':
-      await handlePingCommand(message, args, dbService);
+      await handlePingCommand(message);
       break;
       
     case 'recap':
-      await handleRecapCommand(message, args, dbService);
+      await handleRecapCommand(message, dbService);
       break;
       
     default:
