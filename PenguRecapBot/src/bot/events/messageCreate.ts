@@ -6,15 +6,15 @@ import { config } from '../../config';
 import { NewDiscordMessage } from '../../models/Message';
 
 export async function handleMessageCreate(message: Message, dbService: DatabaseService) {
-  // Skip bot messages (unless configured otherwise)
+  // Skip messages from bot
   if (message.author.bot && !config.bot.saveBotMessages) return;
 
-  // Check if bot is being referenced and handle recommendation requests
+  // Checks if bot was called
   if (await handleBotReference(message, dbService)) {
     return;
   }
 
-  // Handle commands
+  // If message was a command
   if (message.content.startsWith(config.bot.prefix)) {
     const args = message.content.slice(config.bot.prefix.length).trim().split(/ +/);
     const commandName = args.shift()?.toLowerCase();
@@ -22,7 +22,7 @@ export async function handleMessageCreate(message: Message, dbService: DatabaseS
     if (commandName) {
       await handleCommand(message, commandName, args, dbService);
     }
-    return; // Don't save command messages
+    return;
   }
 
   // Process regular messages for saving
@@ -36,14 +36,10 @@ async function handleBotReference(message: Message, dbService: DatabaseService):
   const isBotMentioned = content.includes(botName) || message.mentions.users.has(message.client.user?.id || '');
   if (!isBotMentioned) return false;
 
-  console.log(`🤖 Bot mentioned: "${message.content}"`);
-
   try {
     const categorizationService = new CategorizationService();
 
-    // Get existing categories from database
     const existingCategories = await dbService.getAllCategories();
-    console.log(`📋 Existing categories: ${existingCategories.join(', ')}`);
 
     const categoriesList = existingCategories.length > 0
       ? existingCategories.join(', ')

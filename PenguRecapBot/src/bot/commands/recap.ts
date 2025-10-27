@@ -3,7 +3,7 @@ import { DatabaseService } from '../../services/databaseService';
 import { SummarizerService } from '../../services/summarizerService';
 import { handleMessageCreate } from '../events/messageCreate';
 
-export async function handleRecapCommand(message: Message, args: string[], dbService: DatabaseService) {
+export async function handleRecapCommand(message: Message, dbService: DatabaseService) {
   try {
     const channel = message.channel;
     if (!channel.isTextBased()) {
